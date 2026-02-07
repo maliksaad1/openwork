@@ -42,23 +42,13 @@ interface EngineStatus {
   nextCycleIn: number;
   uptime: number;
   message: string;
-  lastResult?: {
-    success: boolean;
-    totalJobs: number;
-    openJobs: number;
-    submissionsSuccessful: number;
-    submissionsFailed: number;
-    timestamp: string;
+  activityLog: Array<{
+    id: string;
+    type: 'info' | 'success' | 'error' | 'warning';
     message: string;
-  };
-}
-
-interface ActivityLog {
-  id: string;
-  type: 'info' | 'success' | 'error' | 'warning' | 'submit';
-  message: string;
-  detail?: string;
-  timestamp: Date;
+    detail?: string;
+    timestamp: string;
+  }>;
 }
 
 // Format relative time
@@ -90,22 +80,8 @@ export default function Dashboard() {
   const [wallet, setWallet] = useState('0');
   const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
   const [isControlling, setIsControlling] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
-  const prevCycleCount = useRef(0);
-
-  // Add to activity log
-  const addLog = (type: ActivityLog['type'], message: string, detail?: string) => {
-    const entry: ActivityLog = {
-      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      type,
-      message,
-      detail,
-      timestamp: new Date(),
-    };
-    setActivityLog(prev => [entry, ...prev].slice(0, 100)); // Keep last 100 entries
-  };
 
   // Count jobs won from bids with "won" status
   const jobsWon = bids.filter(b => b.status === 'won').length;
@@ -149,18 +125,6 @@ export default function Dashboard() {
       if (res.ok) {
         const status = await res.json();
         setEngineStatus(status);
-
-        // Log new cycles
-        if (status.cycleCount > prevCycleCount.current && status.lastResult) {
-          const result = status.lastResult;
-          if (result.success) {
-            addLog('info', `Cycle #${status.cycleCount} completed`,
-              `${result.submissionsSuccessful} submissions, ${result.openJobs} open jobs`);
-          } else {
-            addLog('error', `Cycle #${status.cycleCount} failed`, result.message);
-          }
-        }
-        prevCycleCount.current = status.cycleCount;
       }
     } catch {
       // Ignore errors
@@ -170,28 +134,19 @@ export default function Dashboard() {
   const controlEngine = async (action: 'start' | 'stop') => {
     setIsControlling(true);
     try {
-      const res = await fetch('/api/autopilot/control', {
+      await fetch('/api/autopilot/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
-      const data = await res.json();
-
-      if (action === 'stop') {
-        addLog('warning', 'Auto-Pilot force stopped', data.message);
-      } else {
-        addLog('info', 'Auto-Pilot started', data.message);
-      }
-
       await loadEngineStatus();
-    } catch (error) {
-      addLog('error', 'Control failed', error instanceof Error ? error.message : 'Unknown error');
+    } catch {
+      // Ignore
     }
     setIsControlling(false);
   };
 
   useEffect(() => {
-    addLog('info', 'Dashboard initialized', 'NeuraFinity Squadron ready');
     loadData();
     loadEngineStatus();
 
@@ -205,7 +160,7 @@ export default function Dashboard() {
       clearInterval(dataInterval);
       clearInterval(statusInterval);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks-exhaustive-deps
   }, []);
 
   const isRunning = engineStatus?.isRunning ?? false;
@@ -378,13 +333,13 @@ export default function Dashboard() {
                 <span className="text-xs text-gray-600">Cycle #{cycleCount}</span>
               </div>
               <div ref={logRef} className="max-h-[300px] overflow-y-auto">
-                {activityLog.length === 0 ? (
+                {(!engineStatus?.activityLog || engineStatus.activityLog.length === 0) ? (
                   <div className="px-5 py-8 text-center text-gray-600">
-                    <p className="text-sm">No activity yet</p>
-                    <p className="text-xs mt-1">Auto-Pilot runs automatically</p>
+                    <p className="text-sm">Loading activity...</p>
+                    <p className="text-xs mt-1">Auto-Pilot starts automatically</p>
                   </div>
                 ) : (
-                  activityLog.map((log) => (
+                  engineStatus.activityLog.map((log) => (
                     <div
                       key={log.id}
                       className={`px-4 py-3 border-b border-gray-800/30 flex items-start gap-3 ${
@@ -422,7 +377,7 @@ export default function Dashboard() {
                         )}
                       </div>
                       <span className="text-xs text-gray-600 whitespace-nowrap">
-                        {log.timestamp.toLocaleTimeString()}
+                        {new Date(log.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
                   ))
