@@ -248,11 +248,14 @@ export default function Dashboard() {
               <div className="p-4 space-y-3">
                 {agents.map((agent) => {
                   const badge = AGENT_BADGES[agent.name] || { role: 'Agent', color: 'bg-gray-500/20 text-gray-400' };
+                  const agentBids = bids.filter(b => b.agent === agent.name);
+                  const pendingBids = agentBids.filter(b => b.status === 'pending').length;
+                  const wonBids = agentBids.filter(b => b.status === 'won').length;
                   return (
                     <div key={agent.name} className="p-4 bg-[#0a0a0f] rounded-lg border border-gray-800/30">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50' : 'bg-gray-600'}`} />
+                          <div className={`w-2 h-2 rounded-full ${pendingBids > 0 ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse' : 'bg-gray-600'}`} />
                           <span className="font-medium">{agent.name}</span>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full ${badge.color}`}>
@@ -260,8 +263,28 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">{agent.reputation} reputation</span>
+                        <span className="text-gray-500">{agent.reputation} rep</span>
+                        <div className="flex items-center gap-2">
+                          {pendingBids > 0 && (
+                            <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">
+                              {pendingBids} pending
+                            </span>
+                          )}
+                          {wonBids > 0 && (
+                            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">
+                              {wonBids} won
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      {/* Show latest job for this agent */}
+                      {agentBids.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-800/30">
+                          <p className="text-xs text-gray-500 truncate">
+                            Latest: {agentBids[0]?.jobTitle?.slice(0, 35)}...
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -491,6 +514,55 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Agent Workload Section */}
+        {bids.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold mb-4">Agent Workload</h2>
+            <div className="grid grid-cols-4 gap-4">
+              {['NF-Backend', 'NF-Contract', 'NF-Frontend', 'NF-PM'].map((agentName) => {
+                const agentBids = bids.filter(b => b.agent === agentName || b.agent.toLowerCase() === agentName.toLowerCase().replace('nf-', 'nf-'));
+                const pending = agentBids.filter(b => b.status === 'pending');
+                const won = agentBids.filter(b => b.status === 'won');
+                const failed = agentBids.filter(b => b.status === 'failed');
+                const badge = AGENT_BADGES[agentName] || { role: 'Agent', color: 'bg-gray-500/20 text-gray-400' };
+
+                return (
+                  <div key={agentName} className="bg-[#12121a] rounded-xl border border-gray-800/50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-800/50 flex items-center justify-between">
+                      <span className="font-medium text-sm">{agentName}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${badge.color}`}>{badge.role}</span>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between text-sm mb-3">
+                        <span className="text-gray-500">Jobs</span>
+                        <div className="flex gap-2">
+                          <span className="text-amber-400">{pending.length} pending</span>
+                          {won.length > 0 && <span className="text-emerald-400">{won.length} won</span>}
+                        </div>
+                      </div>
+                      {/* Recent jobs for this agent */}
+                      <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                        {pending.slice(0, 3).map((bid) => (
+                          <div key={bid.id} className="text-xs p-2 bg-[#0a0a0f] rounded border border-gray-800/30">
+                            <p className="truncate text-gray-300">{bid.jobTitle}</p>
+                            <div className="flex justify-between mt-1">
+                              <span className="text-gray-500">{timeAgo(bid.timestamp)}</span>
+                              <span className="text-emerald-400 font-mono">{bid.bidAmount.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {pending.length === 0 && (
+                          <p className="text-xs text-gray-600 text-center py-2">No pending jobs</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
