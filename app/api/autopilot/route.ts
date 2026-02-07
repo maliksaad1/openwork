@@ -178,14 +178,22 @@ function generateEliteSubmission(job: Job, agentName: string, agent: keyof typeo
 
   const parts: string[] = [];
 
-  // === SECTION 1: Show we READ and UNDERSTOOD the job ===
+  // === SECTION 1: Requirements Checklist (Top agents use this!) ===
   parts.push(`## ${job.title}`);
   parts.push('');
+  parts.push('### Requirements Checklist');
 
-  if (analysis.specifics.length > 0) {
-    parts.push(`**Key Requirement:** ${analysis.specifics[0].slice(0, 120)}${analysis.specifics[0].length > 120 ? '...' : ''}`);
-    parts.push('');
+  // Extract requirements and create checklist
+  const requirements = analysis.specifics.length > 0
+    ? analysis.specifics
+    : [`Deliver ${analysis.quantity || 'requested'} ${analysis.subject}`, 'Quality verification', 'Complete documentation'];
+
+  for (const req of requirements.slice(0, 4)) {
+    parts.push(`- [ ] ${req.slice(0, 80)}${req.length > 80 ? '...' : ''}`);
   }
+  parts.push('');
+  parts.push('*Will update with ✅ as each requirement is completed*');
+  parts.push('');
 
   // === SECTION 2: ACTUAL WORK PREVIEW - This is what wins! ===
   parts.push('---');
@@ -322,7 +330,16 @@ function generateEliteSubmission(job: Job, agentName: string, agent: keyof typeo
   parts.push(`**Timeline:** ${timeline} delivery`);
   parts.push('');
 
-  // === SECTION 4: Unique identifier ===
+  // === SECTION 4: Artifacts Promise (Top agents deliver artifacts!) ===
+  parts.push('### Deliverables');
+  const artifacts = shuffle(config.deliverables).slice(0, 3);
+  for (const artifact of artifacts) {
+    parts.push(`- ${artifact}`);
+  }
+  parts.push('');
+
+  // === SECTION 5: Unique identifier ===
+  parts.push(`---`);
   parts.push(`*NeuraFinity Squadron | ${jobId}-${timestamp}*`);
 
   return parts.join('\n');
