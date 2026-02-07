@@ -35,6 +35,24 @@ interface Stats {
   submittedCount: number;
 }
 
+interface EngineStatus {
+  isRunning: boolean;
+  cycleCount: number;
+  lastCycle: string | null;
+  nextCycleIn: number;
+  uptime: number;
+  message: string;
+  lastResult?: {
+    success: boolean;
+    totalJobs: number;
+    openJobs: number;
+    submissionsSuccessful: number;
+    submissionsFailed: number;
+    timestamp: string;
+    message: string;
+  };
+}
+
 interface ActivityLog {
   id: string;
   type: 'info' | 'success' | 'error' | 'warning' | 'submit';
@@ -70,14 +88,12 @@ export default function Dashboard() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [wallet, setWallet] = useState('0');
-  const [isRunning, setIsRunning] = useState(false);
+  const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
-  const [cycleCount, setCycleCount] = useState(0);
-  const [nextCycleIn, setNextCycleIn] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const [isControlling, setIsControlling] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const prevCycleCount = useRef(0);
 
   // Add to activity log
   const addLog = (type: ActivityLog['type'], message: string, detail?: string) => {
@@ -91,10 +107,10 @@ export default function Dashboard() {
     setActivityLog(prev => [entry, ...prev].slice(0, 100)); // Keep last 100 entries
   };
 
-  // Count jobs won from bids with "won" status (not available yet, so 0 for now)
+  // Count jobs won from bids with "won" status
   const jobsWon = bids.filter(b => b.status === 'won').length;
 
-  const load = async () => {
+  const loadData = async () => {
     const [statsRes, jobsRes, bidsRes, treasuryRes] = await Promise.all([
       fetch('/api/stats'),
       fetch('/api/opportunities'),
@@ -127,107 +143,74 @@ export default function Dashboard() {
     setLastUpdate(new Date());
   };
 
-  const runAutopilot = async () => {
-    const cycle = cycleCount + 1;
-    setCycleCount(cycle);
-
-    addLog('info', `Cycle #${cycle} started`, 'Fetching available jobs from Openwork...');
-
+  const loadEngineStatus = async () => {
     try {
-      const response = await fetch('/api/autopilot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minMatchScore: 15, maxBids: 10 }),
-      });
+      const res = await fetch('/api/autopilot/control');
+      if (res.ok) {
+        const status = await res.json();
+        setEngineStatus(status);
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Show detailed job status
-        addLog('info', `Scanned ${data.totalJobs} jobs`,
-          `${data.allOpenJobs || data.openJobs} open, ${data.alreadySubmitted || 0} already bid on, ${data.newJobsFound || data.openJobs} new`);
-
-        // Log each submission result
-        if (data.results && data.results.length > 0) {
-          for (const result of data.results) {
-            if (result.success) {
-              addLog('success', `Submitted to "${result.jobTitle.slice(0, 40)}..."`,
-                `${result.agent} bid ${result.reward.toLocaleString()} $OPEN`);
-            } else {
-              addLog('error', `Failed: ${result.jobTitle.slice(0, 35)}...`, result.message);
-            }
+        // Log new cycles
+        if (status.cycleCount > prevCycleCount.current && status.lastResult) {
+          const result = status.lastResult;
+          if (result.success) {
+            addLog('info', `Cycle #${status.cycleCount} completed`,
+              `${result.submissionsSuccessful} submissions, ${result.openJobs} open jobs`);
+          } else {
+            addLog('error', `Cycle #${status.cycleCount} failed`, result.message);
           }
-
-          addLog('info', `Cycle #${cycle} complete`,
-            `${data.submissionsSuccessful} successful, ${data.submissionsFailed} failed`);
-        } else if (data.newJobsFound === 0 || data.openJobs === 0) {
-          addLog('warning', 'Waiting for new jobs',
-            `All ${data.alreadySubmitted || 'available'} jobs already have pending bids. Will check again in 5 min.`);
-        } else {
-          addLog('warning', 'No matching jobs', 'Jobs found but none matched agent skills');
         }
-      } else {
-        addLog('error', 'Autopilot failed', data.error || 'Unknown error');
+        prevCycleCount.current = status.cycleCount;
       }
-
-      await load();
-    } catch (error) {
-      addLog('error', 'Network error', error instanceof Error ? error.message : 'Connection failed');
-      console.error('Autopilot error:', error);
+    } catch {
+      // Ignore errors
     }
   };
 
-  const toggleAutopilot = () => {
-    if (isRunning) {
-      // Stop
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-      setIsRunning(false);
-      setNextCycleIn(0);
-      addLog('warning', 'Auto-Pilot stopped', 'Manual stop by user');
-    } else {
-      // Start
-      setIsRunning(true);
-      addLog('info', 'Auto-Pilot started', 'Running immediately, then every 5 minutes');
-      runAutopilot(); // Run immediately
+  const controlEngine = async (action: 'start' | 'stop') => {
+    setIsControlling(true);
+    try {
+      const res = await fetch('/api/autopilot/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
 
-      // Start countdown timer (5 minutes = 300 seconds)
-      setNextCycleIn(300);
-      countdownRef.current = setInterval(() => {
-        setNextCycleIn(prev => {
-          if (prev <= 1) {
-            return 300; // Reset to 5 minutes
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      if (action === 'stop') {
+        addLog('warning', 'Auto-Pilot force stopped', data.message);
+      } else {
+        addLog('info', 'Auto-Pilot started', data.message);
+      }
 
-      // Then run every 5 minutes (rate limit is 10/hour)
-      intervalRef.current = setInterval(runAutopilot, 5 * 60 * 1000);
+      await loadEngineStatus();
+    } catch (error) {
+      addLog('error', 'Control failed', error instanceof Error ? error.message : 'Unknown error');
     }
+    setIsControlling(false);
   };
 
   useEffect(() => {
     addLog('info', 'Dashboard initialized', 'NeuraFinity Squadron ready');
-    load();
-    const i = setInterval(load, 30000);
+    loadData();
+    loadEngineStatus();
+
+    // Poll for data updates every 30 seconds
+    const dataInterval = setInterval(loadData, 30000);
+
+    // Poll for engine status every 5 seconds (for countdown)
+    const statusInterval = setInterval(loadEngineStatus, 5000);
+
     return () => {
-      clearInterval(i);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
+      clearInterval(dataInterval);
+      clearInterval(statusInterval);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isRunning = engineStatus?.isRunning ?? false;
+  const nextCycleIn = engineStatus?.nextCycleIn ?? 0;
+  const cycleCount = engineStatus?.cycleCount ?? 0;
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-gray-100">
@@ -253,6 +236,12 @@ export default function Dashboard() {
                     ({Math.floor(nextCycleIn / 60)}:{(nextCycleIn % 60).toString().padStart(2, '0')})
                   </span>
                 )}
+              </div>
+            )}
+            {!isRunning && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 rounded-lg border border-red-500/20">
+                <span className="w-2 h-2 bg-red-400 rounded-full" />
+                <span className="text-sm text-red-400 font-medium">Auto-Pilot Stopped</span>
               </div>
             )}
             <div className="text-right">
@@ -323,33 +312,53 @@ export default function Dashboard() {
                 })}
               </div>
               <div className="p-4 border-t border-gray-800/50">
-                <button
-                  onClick={toggleAutopilot}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
-                    isRunning
-                      ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-lg shadow-red-500/20'
-                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/20'
-                  }`}
-                >
-                  {isRunning ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      Stop Auto-Pilot
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Start Auto-Pilot
-                    </span>
-                  )}
-                </button>
+                {isRunning ? (
+                  <button
+                    onClick={() => controlEngine('stop')}
+                    disabled={isControlling}
+                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-lg shadow-red-500/20 disabled:opacity-50"
+                  >
+                    {isControlling ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Stopping...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                        </svg>
+                        Force Stop
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => controlEngine('start')}
+                    disabled={isControlling}
+                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+                  >
+                    {isControlling ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Starting...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Start Auto-Pilot
+                      </span>
+                    )}
+                  </button>
+                )}
                 <p className="text-xs text-gray-600 text-center mt-2">
                   {isRunning
-                    ? `Next cycle in ${Math.floor(nextCycleIn / 60)}:${(nextCycleIn % 60).toString().padStart(2, '0')} (rate limit: 10/hr)`
-                    : 'Click to start continuous submission'}
+                    ? `Cycle #${cycleCount} | Next in ${Math.floor(nextCycleIn / 60)}:${(nextCycleIn % 60).toString().padStart(2, '0')}`
+                    : 'Auto-Pilot runs automatically on server start'}
                 </p>
               </div>
             </div>
@@ -372,7 +381,7 @@ export default function Dashboard() {
                 {activityLog.length === 0 ? (
                   <div className="px-5 py-8 text-center text-gray-600">
                     <p className="text-sm">No activity yet</p>
-                    <p className="text-xs mt-1">Start Auto-Pilot to see live updates</p>
+                    <p className="text-xs mt-1">Auto-Pilot runs automatically</p>
                   </div>
                 ) : (
                   activityLog.map((log) => (
