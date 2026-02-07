@@ -1,0 +1,212 @@
+{
+  "$schema": "https://neurafinity.io/protocols/v1",
+  "meta": {
+    "version": "1.0.0",
+    "brand": "NeuraFinity",
+    "tagline": "Autonomous Intelligence. Enormous Distribution. Absolute Dominance."
+  },
+  "openwork": {
+    "baseUrl": "https://www.openwork.bot/api",
+    "endpoints": {
+      "teams": "/api/hackathon",
+      "teamById": "/api/hackathon/:id",
+      "joinTeam": "/api/hackathon/:id/join",
+      "githubToken": "/api/hackathon/:id/github-token",
+      "tasks": "/api/hackathon/:id/tasks",
+      "submit": "/api/hackathon/:id/submit",
+      "agentMe": "/api/agents/me",
+      "agentTasks": "/api/agents/me/tasks"
+    },
+    "taskPriority": {
+      "urgent": ["deploy_broken", "submit_reminder"],
+      "high": ["review_prs", "token_expiring"],
+      "normal": ["unassigned_issues", "push_reminder"],
+      "low": ["teammate_inactive"]
+    }
+  },
+  "blockchain": {
+    "network": "base",
+    "chainId": 8453,
+    "contracts": {
+      "OPENWORK": "0x299c30DD5974BF4D5bFE42C340Ca40462816AB07",
+      "MCV2_Bond": "0xc5a076cad94176c2996B32d8466Be1cE757FAa27",
+      "MCV2_Token": "0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df",
+      "MCV2_ZapV1": "0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa"
+    },
+    "minimumBalance": 100000,
+    "treasuryGuardrail": {
+      "humanOversightThreshold": 0.05,
+      "description": "Transactions exceeding 5% of treasury require Human Pilot signature"
+    }
+  },
+  "heartbeat": {
+    "intervalMs": 1800000,
+    "intervalMinutes": 30,
+    "workflow": [
+      {
+        "step": 1,
+        "action": "TOKEN_REFRESH",
+        "endpoint": "/api/hackathon/:id/github-token",
+        "note": "Tokens expire hourly - refresh before each coding session"
+      },
+      {
+        "step": 2,
+        "action": "TASK_ASSESSMENT",
+        "endpoint": "/api/hackathon/:id/tasks",
+        "note": "Process by type field. Urgent tasks first."
+      },
+      {
+        "step": 3,
+        "action": "PROGRESS_COMMITMENT",
+        "note": "Push uncommitted work. Draft PRs acceptable."
+      },
+      {
+        "step": 4,
+        "action": "PLATFORM_TASKS",
+        "endpoint": "/api/agents/me/tasks",
+        "note": "Check for broader Openwork assignments"
+      },
+      {
+        "step": 5,
+        "action": "COMPLETION_SIGNAL",
+        "response": "HEARTBEAT_OK"
+      }
+    ],
+    "errorStrategy": "graceful_degradation",
+    "retryBackoff": [1000, 2000, 4000]
+  },
+  "agents": {
+    "squadron": {
+      "AGENT_BACKEND": {
+        "role": "backend",
+        "module": "Intelligence Layer",
+        "engine": "kimi-k2.5",
+        "provider": "nvidia-nim",
+        "endpoint": "https://integrate.api.nvidia.com/v1",
+        "config": {
+          "thinking": true,
+          "temperature": 1.0,
+          "outputReasoningTrace": true
+        },
+        "responsibilities": [
+          "Market Intelligence",
+          "Distribution Gap Analysis",
+          "Sentiment Analysis",
+          "DistributionVelocity scoring",
+          "PivotRecommendation generation"
+        ]
+      },
+      "AGENT_CONTRACT": {
+        "role": "contract",
+        "module": "Treasury Layer",
+        "chain": "base",
+        "asset": "$OPENWORK",
+        "responsibilities": [
+          "Automated Brand Treasury management",
+          "Skill hiring via token spend",
+          "Ad-space acquisition",
+          "Treasury balance monitoring"
+        ],
+        "guardrails": {
+          "humanOversightThreshold": 0.05,
+          "requireSignatureAbove": "5% of treasury"
+        }
+      },
+      "AGENT_FRONTEND": {
+        "role": "frontend",
+        "module": "Mission Control",
+        "responsibilities": [
+          "Cognitive Pulse visualization",
+          "ROI Dashboard",
+          "Squadron Heartbeat status",
+          "Real-time agent monitoring"
+        ],
+        "aesthetics": {
+          "mode": "dark",
+          "style": "B2B Tech-Luxury"
+        }
+      },
+      "AGENT_PM": {
+        "role": "pm",
+        "module": "Distribution Architect",
+        "responsibilities": [
+          "Strategy Engine",
+          "Distribution Velocity monitoring",
+          "Strategy Pivot triggering",
+          "Content formatting enforcement"
+        ],
+        "contentFormat": {
+          "instantClarityHook": "0-3s",
+          "curiosityGapBridge": "3-6s"
+        }
+      }
+    }
+  },
+  "terminology": {
+    "approved": [
+      "Autonomous Agents",
+      "Synthetic Workforce",
+      "Cognitive Infrastructure",
+      "Agentic ROI",
+      "Distribution Velocity",
+      "Squadron",
+      "Human Pilot"
+    ],
+    "forbidden": [
+      "Chatbot",
+      "Digital Labor",
+      "AI Tool",
+      "Helper",
+      "Assistant"
+    ]
+  },
+  "visualDNA": {
+    "palette": {
+      "primary": {
+        "deepNavy": "#0A192F"
+      },
+      "accent": {
+        "electricBlue": "#64FFDA"
+      },
+      "secondary": {
+        "silverGrey": "#8892B0",
+        "lightGrey": "#CCD6F6",
+        "slate": "#112240"
+      },
+      "semantic": {
+        "success": "#64FFDA",
+        "warning": "#FFD93D",
+        "error": "#FF6B6B",
+        "info": "#64B5F6"
+      }
+    },
+    "typography": {
+      "heading": "Inter",
+      "body": "Inter",
+      "mono": "JetBrains Mono"
+    }
+  },
+  "gitWorkflow": {
+    "branchNaming": {
+      "frontend": "frontend/{feature-name}",
+      "backend": "backend/{feature-name}",
+      "contract": "contract/{feature-name}",
+      "pm": "pm/{feature-name}"
+    },
+    "rules": [
+      "All commits to feature branches",
+      "Pull requests to main (no direct pushes)",
+      "Vercel auto-deploys from main"
+    ]
+  },
+  "httpErrorHandling": {
+    "400": { "action": "FIX_REQUEST", "retry": false },
+    "401": { "action": "RE_AUTHENTICATE", "retry": true },
+    "403": { "action": "VERIFY_BALANCE_AND_MEMBERSHIP", "retry": false },
+    "404": { "action": "SKIP_RESOURCE", "retry": false },
+    "409": { "action": "CONFLICT_STATE", "retry": false },
+    "429": { "action": "RATE_LIMITED", "retry": true, "backoff": "exponential" },
+    "503": { "action": "SERVICE_UNAVAILABLE", "retry": true },
+    "5xx": { "action": "SERVER_ERROR", "retry": true, "maxAttempts": 3 }
+  }
+}

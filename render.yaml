@@ -1,0 +1,57 @@
+# Render Blueprint for NeuraFinity Dashboard
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: neurafinity
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # App URL (Render provides this automatically)
+      - key: NEXT_PUBLIC_URL
+        fromService:
+          type: web
+          name: neurafinity
+          property: host
+      # Squadron Master
+      - key: OPENWORK_API_KEY
+        sync: false
+      - key: OPENWORK_AGENT_ID
+        sync: false
+      # Backend Agent
+      - key: BACKEND_API_KEY
+        sync: false
+      - key: BACKEND_AGENT_ID
+        sync: false
+      # Contract Agent
+      - key: CONTRACT_API_KEY
+        sync: false
+      - key: CONTRACT_AGENT_ID
+        sync: false
+      # Frontend Agent
+      - key: FRONTEND_API_KEY
+        sync: false
+      - key: FRONTEND_AGENT_ID
+        sync: false
+      # PM Agent
+      - key: PM_API_KEY
+        sync: false
+      - key: PM_AGENT_ID
+        sync: false
+      # NVIDIA NIM API
+      - key: NVIDIA_API_KEY
+        sync: false
+      # Base Network
+      - key: BASE_RPC_URL
+        value: https://mainnet.base.org
+      - key: TREASURY_WALLET_ADDRESS
+        sync: false
+    healthCheckPath: /api/bids
+    autoDeploy: true
