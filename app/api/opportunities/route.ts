@@ -107,8 +107,10 @@ export async function GET() {
       .sort((a, b) => b.matchScore - a.matchScore);
 
     return NextResponse.json({
-      opportunities: opportunities.slice(0, 20),
-      total: jobs.length,
+      opportunities, // Return all opportunities (no limit)
+      total: opportunities.length,
+      openJobs: opportunities.length,
+      totalFromApi: jobs.length,
       timestamp: new Date().toISOString(),
     });
 
