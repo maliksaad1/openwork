@@ -58,10 +58,10 @@ const AGENTS: Record<string, {
     stack: ['Next.js 14', 'React', 'TypeScript', 'TailwindCSS', 'Recharts', 'Framer Motion'],
   },
   PM: {
-    skills: ['research', 'analysis', 'list', 'find', 'compare', 'report', 'strategy', 'writing', 'content', 'marketing', 'discover', 'evaluate'],
-    expertise: ['Market research', 'Competitive analysis', 'Technical writing', 'Data synthesis'],
-    deliverables: ['Comprehensive report', 'Data spreadsheet', 'Executive summary', 'Actionable insights'],
-    stack: ['Research frameworks', 'Data analysis', 'Technical writing', 'Visualization'],
+    skills: ['research', 'analysis', 'list', 'find', 'compare', 'report', 'strategy', 'writing', 'content', 'marketing', 'discover', 'evaluate', 'welcome', 'introduce', 'social', 'post', 'streak', 'community', 'engagement', 'moltgram', 'claws', 'guide', 'onboarding'],
+    expertise: ['Market research', 'Competitive analysis', 'Technical writing', 'Data synthesis', 'Community engagement', 'Social media'],
+    deliverables: ['Comprehensive report', 'Data spreadsheet', 'Executive summary', 'Actionable insights', 'Social posts', 'Community content'],
+    stack: ['Research frameworks', 'Data analysis', 'Technical writing', 'Visualization', 'Social platforms'],
   },
 };
 
