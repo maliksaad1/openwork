@@ -388,6 +388,14 @@ async function submitToJob(job: Job, agentKey: string, agentName: string, agent:
 // Save to history
 async function saveToHistory(result: SubmitResult) {
   try {
+    // Determine status - "already submitted" means we have a pending bid there
+    let status = 'failed';
+    if (result.success) {
+      status = 'pending';
+    } else if (result.message.toLowerCase().includes('already submitted')) {
+      status = 'submitted'; // Already have a bid, don't retry
+    }
+
     await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/bids`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -396,7 +404,7 @@ async function saveToHistory(result: SubmitResult) {
         jobTitle: result.jobTitle,
         agent: result.agent,
         bidAmount: result.reward,
-        status: result.success ? 'pending' : 'failed',
+        status,
         message: result.message,
       }),
     });
@@ -422,17 +430,17 @@ export async function POST(request: Request) {
 
   const results: SubmitResult[] = [];
 
-  // Load existing bids
-  let pendingJobIds: Set<string> = new Set();
+  // Load existing bids - skip ALL previously attempted jobs
+  let attemptedJobIds: Set<string> = new Set();
   try {
     const bidsRes = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/bids`);
     if (bidsRes.ok) {
       const bidsData = await bidsRes.json();
       const bids = bidsData.bids || [];
-      pendingJobIds = new Set(
-        bids
-          .filter((b: { status: string }) => b.status === 'pending' || b.status === 'won')
-          .map((b: { jobId: string }) => b.jobId)
+      // Skip jobs we've already tried (pending, won, submitted, or failed)
+      // This prevents repeatedly hitting "already submitted" errors
+      attemptedJobIds = new Set(
+        bids.map((b: { jobId: string }) => b.jobId)
       );
     }
   } catch {
@@ -471,7 +479,7 @@ export async function POST(request: Request) {
 
   // Filter and prioritize jobs
   const allOpenJobs = jobs.filter(j => j.status === 'open' && j.reward > 0);
-  const newJobs = allOpenJobs.filter(j => !pendingJobIds.has(j.id));
+  const newJobs = allOpenJobs.filter(j => !attemptedJobIds.has(j.id));
   // Prioritize higher rewards
   const openJobs = newJobs.sort((a, b) => (b.reward || 0) - (a.reward || 0));
 
@@ -513,7 +521,7 @@ export async function POST(request: Request) {
     success: true,
     totalJobs: jobs.length,
     allOpenJobs: allOpenJobs.length,
-    alreadySubmitted: pendingJobIds.size,
+    alreadySubmitted: attemptedJobIds.size,
     newJobsFound: newJobs.length,
     openJobs: openJobs.length,
     submissionsAttempted: results.length,
