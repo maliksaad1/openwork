@@ -25,6 +25,7 @@ interface Bid {
   bidAmount: number;
   status: string;
   message: string;
+  submission?: string;
   timestamp?: string;
 }
 
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isControlling, setIsControlling] = useState(false);
+  const [expandedBid, setExpandedBid] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Count jobs won from bids with "won" status
@@ -526,11 +528,18 @@ export default function Dashboard() {
           <div className="mt-8">
             <h2 className="text-lg font-semibold mb-4">Agent Workload</h2>
             <div className="grid grid-cols-4 gap-4">
-              {['NF-Backend', 'NF-Contract', 'NF-Frontend', 'NF-PM'].map((agentName) => {
-                const agentBids = bids.filter(b => b.agent === agentName || b.agent.toLowerCase() === agentName.toLowerCase().replace('nf-', 'nf-'));
+              {['NEXUS', 'FORGE', 'PRISM', 'CORTEX'].map((agentName) => {
+                // Match both new and legacy names
+                const legacyName = agentName === 'NEXUS' ? 'NF-Backend' :
+                                   agentName === 'FORGE' ? 'NF-Contract' :
+                                   agentName === 'PRISM' ? 'NF-Frontend' : 'NF-PM';
+                const agentBids = bids.filter(b =>
+                  b.agent === agentName ||
+                  b.agent === legacyName ||
+                  b.agent.toLowerCase() === legacyName.toLowerCase()
+                );
                 const pending = agentBids.filter(b => b.status === 'pending');
                 const won = agentBids.filter(b => b.status === 'won');
-                const failed = agentBids.filter(b => b.status === 'failed');
                 const badge = AGENT_BADGES[agentName] || { role: 'Agent', color: 'bg-gray-500/20 text-gray-400' };
 
                 return (
@@ -547,19 +556,50 @@ export default function Dashboard() {
                           {won.length > 0 && <span className="text-emerald-400">{won.length} won</span>}
                         </div>
                       </div>
-                      {/* Recent jobs for this agent */}
-                      <div className="space-y-2 max-h-[120px] overflow-y-auto">
-                        {pending.slice(0, 3).map((bid) => (
-                          <div key={bid.id} className="text-xs p-2 bg-[#0a0a0f] rounded border border-gray-800/30">
-                            <p className="truncate text-gray-300">{bid.jobTitle}</p>
-                            <div className="flex justify-between mt-1">
-                              <span className="text-gray-500">{timeAgo(bid.timestamp)}</span>
-                              <span className="text-emerald-400 font-mono">{bid.bidAmount.toLocaleString()}</span>
+                      {/* Scrollable bid list with expandable details */}
+                      <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 scrollbar-thin">
+                        {agentBids.slice(0, 10).map((bid) => (
+                          <div
+                            key={bid.id}
+                            className={`text-xs bg-[#0a0a0f] rounded border transition-all cursor-pointer ${
+                              expandedBid === bid.id
+                                ? 'border-cyan-500/50 ring-1 ring-cyan-500/20'
+                                : 'border-gray-800/30 hover:border-gray-700/50'
+                            }`}
+                          >
+                            <div
+                              className="p-2"
+                              onClick={() => setExpandedBid(expandedBid === bid.id ? null : bid.id)}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="truncate text-gray-300 flex-1">{bid.jobTitle}</p>
+                                <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${
+                                  bid.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                                  bid.status === 'won' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  bid.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                  {bid.status}
+                                </span>
+                              </div>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-gray-500">{timeAgo(bid.timestamp)}</span>
+                                <span className="text-emerald-400 font-mono">{bid.bidAmount.toLocaleString()} $OPEN</span>
+                              </div>
                             </div>
+                            {/* Expanded submission content */}
+                            {expandedBid === bid.id && (
+                              <div className="border-t border-gray-800/50 p-2 bg-[#080810]">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Submission Content</p>
+                                <div className="max-h-[200px] overflow-y-auto text-gray-400 whitespace-pre-wrap text-[11px] leading-relaxed font-mono bg-[#0a0a0f] p-2 rounded">
+                                  {bid.submission || bid.message || 'No submission content available'}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
-                        {pending.length === 0 && (
-                          <p className="text-xs text-gray-600 text-center py-2">No pending jobs</p>
+                        {agentBids.length === 0 && (
+                          <p className="text-xs text-gray-600 text-center py-4">No bids yet</p>
                         )}
                       </div>
                     </div>

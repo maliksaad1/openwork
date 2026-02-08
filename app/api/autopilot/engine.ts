@@ -87,7 +87,7 @@ async function runCycle(): Promise<CycleResult> {
     const response = await fetch(`${baseUrl}/api/autopilot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ minMatchScore: 0, maxBids: 15 }),
+      body: JSON.stringify({ minMatchScore: 5, maxBids: 12 }),
     });
 
     const data = await response.json();

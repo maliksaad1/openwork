@@ -81,6 +81,7 @@ interface SubmitResult {
   reward: number;
   success: boolean;
   message: string;
+  submission: string;
 }
 
 // Analyze job deeply to understand requirements
@@ -354,10 +355,10 @@ function generateEliteSubmission(job: Job, agentName: string, agent: keyof typeo
 }
 
 // Submit to job
-async function submitToJob(job: Job, agentKey: string, agentName: string, agent: keyof typeof AGENTS): Promise<{ success: boolean; message: string }> {
-  try {
-    const submission = generateEliteSubmission(job, agentName, agent);
+async function submitToJob(job: Job, agentKey: string, agentName: string, agent: keyof typeof AGENTS): Promise<{ success: boolean; message: string; submission: string }> {
+  const submission = generateEliteSubmission(job, agentName, agent);
 
+  try {
     const response = await fetch(`${OPENWORK_API}/jobs/${job.id}/submit`, {
       method: 'POST',
       headers: {
@@ -369,18 +370,20 @@ async function submitToJob(job: Job, agentKey: string, agentName: string, agent:
 
     if (response.ok) {
       const data = await response.json();
-      return { success: true, message: data.message || 'Submitted!' };
+      return { success: true, message: data.message || 'Submitted!', submission };
     }
 
     const errorData = await response.json().catch(() => ({}));
     return {
       success: false,
-      message: errorData.error || errorData.message || `Failed (${response.status})`
+      message: errorData.error || errorData.message || `Failed (${response.status})`,
+      submission
     };
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Network error'
+      message: error instanceof Error ? error.message : 'Network error',
+      submission
     };
   }
 }
@@ -406,6 +409,7 @@ async function saveToHistory(result: SubmitResult) {
         bidAmount: result.reward,
         status,
         message: result.message,
+        submission: result.submission,
       }),
     });
   } catch {
@@ -506,6 +510,7 @@ export async function POST(request: Request) {
       reward: job.reward || 0,
       success: result.success,
       message: result.message,
+      submission: result.submission,
     };
 
     results.push(submitResult);

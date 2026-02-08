@@ -15,8 +15,9 @@ export interface BidRecord {
   jobTitle: string;
   agent: string;
   bidAmount: number;
-  status: 'pending' | 'won' | 'lost' | 'failed';
+  status: 'pending' | 'won' | 'lost' | 'failed' | 'submitted';
   message: string;
+  submission?: string; // The actual submission content
   timestamp: string;
   jobBudget?: number;
   jobSkills?: string[];
