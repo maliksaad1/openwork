@@ -526,7 +526,20 @@ export default function Dashboard() {
         {/* Agent Workload Section */}
         {bids.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-lg font-semibold mb-4">Agent Workload</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Agent Workload</h2>
+              <button
+                onClick={async () => {
+                  if (confirm('Clear all bid history? This cannot be undone.')) {
+                    await fetch('/api/bids', { method: 'DELETE' });
+                    loadData();
+                  }
+                }}
+                className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
+              >
+                Clear History
+              </button>
+            </div>
             <div className="grid grid-cols-4 gap-4">
               {['NEXUS', 'FORGE', 'PRISM', 'CORTEX'].map((agentName) => {
                 // Match both new and legacy names

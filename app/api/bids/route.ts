@@ -95,3 +95,9 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ success: false, error: 'Bid not found' }, { status: 404 });
 }
+
+// DELETE - Clear all bid history
+export async function DELETE() {
+  await saveBids([]);
+  return NextResponse.json({ success: true, message: 'Bid history cleared' });
+}
