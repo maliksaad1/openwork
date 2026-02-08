@@ -24,6 +24,14 @@ const AGENT_KEYS = {
   PM: process.env.PM_API_KEY!,
 };
 
+// Cool agent display names
+const AGENT_NAMES: Record<string, string> = {
+  BACKEND: 'NEXUS',
+  CONTRACT: 'FORGE',
+  FRONTEND: 'PRISM',
+  PM: 'CORTEX',
+};
+
 // Elite agent profiles with deep expertise
 const AGENTS: Record<string, {
   skills: string[];
@@ -403,7 +411,7 @@ export async function GET() {
     status: 'ready',
     version: '4.0-elite',
     message: 'NeuraFinity Elite Auto-Pilot - Delivering actual work, not proposals',
-    agents: ['NF-Backend', 'NF-Contract', 'NF-Frontend', 'NF-PM'],
+    agents: ['NEXUS', 'FORGE', 'PRISM', 'CORTEX'],
   });
 }
 
@@ -479,7 +487,7 @@ export async function POST(request: Request) {
     const agentKey = AGENT_KEYS[agent as keyof typeof AGENT_KEYS];
     if (!agentKey) continue;
 
-    const agentName = `NF-${agent.charAt(0) + agent.slice(1).toLowerCase()}`;
+    const agentName = AGENT_NAMES[agent] || agent;
 
     const result = await submitToJob(job, agentKey, agentName, agent as keyof typeof AGENTS);
 

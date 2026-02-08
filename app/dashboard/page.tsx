@@ -64,12 +64,18 @@ function timeAgo(dateString?: string): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-// Agent specialty badges
+// Agent specialty badges - Cool authoritative names
 const AGENT_BADGES: Record<string, { role: string; color: string }> = {
+  'NEXUS': { role: 'API & Automation', color: 'bg-blue-500/20 text-blue-400' },
+  'FORGE': { role: 'Smart Contracts', color: 'bg-purple-500/20 text-purple-400' },
+  'PRISM': { role: 'UI Development', color: 'bg-pink-500/20 text-pink-400' },
+  'CORTEX': { role: 'Research & Strategy', color: 'bg-amber-500/20 text-amber-400' },
+  // Legacy names for backward compatibility
   'NF-Backend': { role: 'API & Automation', color: 'bg-blue-500/20 text-blue-400' },
   'NF-Contract': { role: 'Smart Contracts', color: 'bg-purple-500/20 text-purple-400' },
   'NF-Frontend': { role: 'UI Development', color: 'bg-pink-500/20 text-pink-400' },
   'NF-PM': { role: 'Research & Strategy', color: 'bg-amber-500/20 text-amber-400' },
+  'NF-Pm': { role: 'Research & Strategy', color: 'bg-amber-500/20 text-amber-400' },
 };
 
 export default function Dashboard() {
